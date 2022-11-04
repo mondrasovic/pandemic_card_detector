@@ -1,0 +1,16 @@
+albumentations
+black
+ipython
+isort
+jupyter
+mypy
+notebook
+numpy
+opencv-python
+pydot
+pytest
+tensorflow-addons
+tqdm
+yacs
+pylint
+flake8
