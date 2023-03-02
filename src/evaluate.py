@@ -6,12 +6,12 @@ import numpy as np
 from sklearn.metrics import classification_report
 
 from core.common.app import Application
-from core.data.io import LabelIndexMap, read_tfrecord_dataset_from_config
+from core.data.io import make_label_index_map, read_tfrecord_dataset_from_config
 from core.data.serialization import make_example_serializer
-from core.modeling.model import make_compiled_model
+from core.modeling.model import make_predictor_from_checkpoint
 
 if TYPE_CHECKING:
-    from typing import Iterable, Sequence
+    from typing import Sequence
 
 
 class EvaluatorApp(Application):
@@ -20,13 +20,8 @@ class EvaluatorApp(Application):
         batch_size = self.config.EVAL.BATCH_SIZE
 
         example_serializer = make_example_serializer(self.config)
-
-        object_localizer_classifier = make_compiled_model(self.config)
-        object_localizer_classifier.model.load_weights(
-            self.config.TRAIN.CHECKPOINT_FILE_PATH
-        ).expect_partial()
-
-        label_index_map = LabelIndexMap.from_json(self.config.DATA.LABEL_INDEX_MAP_FILE_PATH)
+        predictor = make_predictor_from_checkpoint(self.config)
+        label_index_map = make_label_index_map(self.config)
 
         self.log_info(f"reading test dataset for evaluation from file {test_dataset_file_path}")
         test_dataset = read_tfrecord_dataset_from_config(
@@ -37,9 +32,8 @@ class EvaluatorApp(Application):
 
         classification_outputs_name = self.config.MODEL.CLASSIFICATION_OUTPUTS_NAME
         targets_batches, predictions_batches = [], []
-        model = object_localizer_classifier.model
         for inputs, targets in test_dataset:
-            predictions = model(inputs)
+            predictions = predictor(inputs)
 
             predictions_batches.append(predictions[classification_outputs_name].numpy())
             targets_batches.append(targets[classification_outputs_name].numpy())

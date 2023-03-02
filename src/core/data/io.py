@@ -242,3 +242,7 @@ def read_tfrecord_dataset_from_config(
         batch_size=batch_size,
         shuffle_buffer_size_coef=shuffle_buffer_size_coef,
     )
+
+
+def make_label_index_map(config: ConfigurationNode) -> LabelIndexMap:
+    return LabelIndexMap.from_json(config.DATA.LABEL_INDEX_MAP_FILE_PATH)

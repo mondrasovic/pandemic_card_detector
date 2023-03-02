@@ -32,8 +32,7 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir -r ${A_REQUIREMENTS_FILE}
 RUN rm ${A_REQUIREMENTS_FILE}
 
-# Install additional information to help mypy resolve types
-RUN mypy --install-types
+EXPOSE 5000
 
 # Working directory
 ARG SRC_DIR

@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 if TYPE_CHECKING:
-    from typing import Dict, Tuple
+    from typing import Any, Dict, Tuple
 
     from yacs.config import CfgNode as ConfigurationNode
 
@@ -17,11 +17,36 @@ if TYPE_CHECKING:
 
 class PredictorMixin(abc.ABC):
     @abc.abstractmethod
+    def __call__(self, inputs: Any) -> Any:
+        pass
+
+    @abc.abstractmethod
     def predict_images(self, images: np.ndarray) -> Dict[str, np.ndarray]:
         pass
 
 
-class ObjectLocalizerAndClassifier(PredictorMixin):
+class ModelMixin(abc.ABC):
+    @abc.abstractmethod
+    def compile(
+        self,
+        loss: Dict[str, tf.keras.losses.Loss],
+        loss_weights: Dict[str, float],
+        optimizer: tf.keras.optimizers.Optimizer,
+        metrics: Dict[str, tf.keras.metrics.Metric],
+    ) -> None:
+        pass
+
+    # TODO Utilize train even in the training script
+    @abc.abstractmethod
+    def train(self) -> None:
+        pass
+
+    @abc.abstractmethod
+    def load_weights(self, checkpoint_file_path: str) -> None:
+        pass
+
+
+class ObjectLocalizerAndClassifier(ModelMixin, PredictorMixin):
     def __init__(
         self,
         input_shape: InputShape,
@@ -39,6 +64,10 @@ class ObjectLocalizerAndClassifier(PredictorMixin):
         self.bbox_outputs_name = bbox_outputs_name
 
         self.model = self._build_model(input_shape)
+
+    # PredictorMixin
+    def __call__(self, inputs: Any) -> Any:
+        return self.model(inputs)
 
     # PredictorMixin
     def predict_images(self, images: np.ndarray) -> Dict[str, np.ndarray]:
@@ -60,7 +89,8 @@ class ObjectLocalizerAndClassifier(PredictorMixin):
             self.bbox_outputs_name: bboxes,
         }
 
-    def compile_model(
+    # ModelMixin
+    def compile(
         self,
         loss: Dict[str, tf.keras.losses.Loss],
         loss_weights: Dict[str, float],
@@ -70,6 +100,14 @@ class ObjectLocalizerAndClassifier(PredictorMixin):
         self.model.compile(
             optimizer=optimizer, loss=loss, metrics=metrics, loss_weights=loss_weights
         )
+
+    # ModelMixin
+    def train(self) -> None:
+        pass
+
+    # ModelMixin
+    def load_weights(self, checkpoint_file_path: str) -> None:
+        self.model.load_weights(checkpoint_file_path).expect_partial()
 
     def _build_model(self, input_shape: InputShape) -> tf.keras.Model:
         input_layer = tf.keras.layers.Input(shape=input_shape, name=self.inputs_name)
@@ -166,7 +204,7 @@ def get_name(prefix: str, suffix: str) -> str:
     return f"{prefix}_{suffix}"
 
 
-def make_model(config: ConfigurationNode) -> ObjectLocalizerAndClassifier:
+def make_model(config: ConfigurationNode) -> ModelMixin:
     model = ObjectLocalizerAndClassifier(
         input_shape=config.MODEL.INPUT_SHAPE,
         n_classes=config.MODEL.N_CLASSES,
@@ -178,7 +216,7 @@ def make_model(config: ConfigurationNode) -> ObjectLocalizerAndClassifier:
     return model
 
 
-def make_compiled_model(config: ConfigurationNode) -> ObjectLocalizerAndClassifier:
+def make_compiled_model(config: ConfigurationNode) -> ModelMixin:
     from core.modeling.loss import make_loss, make_loss_weights
     from core.modeling.model import make_model
     from core.training.metrics import make_metrics
@@ -190,6 +228,12 @@ def make_compiled_model(config: ConfigurationNode) -> ObjectLocalizerAndClassifi
     loss_weights = make_loss_weights(config)
     metrics = make_metrics(config)
 
-    model.compile_model(loss, loss_weights, optimizer, metrics)
+    model.compile(loss, loss_weights, optimizer, metrics)
 
     return model
+
+
+def make_predictor_from_checkpoint(config: ConfigurationNode) -> PredictorMixin:
+    object_localizer_classifier = make_compiled_model(config)
+    object_localizer_classifier.load_weights(config.TRAIN.CHECKPOINT_FILE_PATH)
+    return object_localizer_classifier

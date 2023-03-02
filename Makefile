@@ -12,6 +12,7 @@ docker_run:
 		-it \
 		-v ${shell pwd}:/pandemic_calc \
 		-v /home/mond/datasets/pandemic:/dataset \
+		-p 5000:5000 \
 		-e "DATASET_DIR=/dataset" \
 		-e "TF_CPP_MIN_LOG_LEVEL=2" \
 		mond/pandemic-calc \
@@ -33,6 +34,9 @@ evaluate:
 
 test:
 	@pytest ./src/tests
+
+rest_service_run:
+	@python ./src/predictor_service.py
 
 reformat:
 	@isort --line-length 100 .

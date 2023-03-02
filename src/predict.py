@@ -6,8 +6,8 @@ import cv2 as cv
 import numpy as np
 
 from core.common.app import Application
-from core.data.io import LabelIndexMap
-from core.modeling.model import make_compiled_model
+from core.data.io import make_label_index_map
+from core.modeling.model import make_predictor_from_checkpoint
 
 if TYPE_CHECKING:
     import argparse
@@ -37,13 +37,10 @@ class PredictorApp(Application):
             f"running prediction on image {self.args.input_image_file_path} "
             f"of shape {image_orig.shape}"
         )
-        object_localizer_classifier = make_compiled_model(self.config)
-        object_localizer_classifier.model.load_weights(
-            self.config.TRAIN.CHECKPOINT_FILE_PATH
-        ).expect_partial()
-        prediction = object_localizer_classifier.predict_images(image_rgb)
+        predictor = make_predictor_from_checkpoint(self.config)
+        prediction = predictor.predict_images(image_rgb)
 
-        label_index_map = LabelIndexMap.from_json(self.config.DATA.LABEL_INDEX_MAP_FILE_PATH)
+        label_index_map = make_label_index_map(self.config)
         label_index = prediction[self.config.MODEL.CLASSIFICATION_OUTPUTS_NAME][0]
         assert label_index.ndim == 0
         label = label_index_map.get_index_label(int(label_index))

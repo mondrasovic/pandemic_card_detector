@@ -47,7 +47,7 @@ class TestObjectLocalizerAndClassifier:
             model.bbox_outputs_name: tf.keras.metrics.MeanAbsoluteError(),
         }
 
-        model.compile_model(loss, loss_weights, optimizer, metrics)
+        model.compile(loss, loss_weights, optimizer, metrics)
 
         return model
 
